@@ -45,46 +45,46 @@ public class RealmInspectorTest {
         List<Page> pages = Arrays.asList(
                 new Page("aaa"),
                 new Page("aab"),
-                new Page("aba"),
-                new Page("aad"),
+                new Page("aba"),    // not used
+                new Page("aad"),    // will be deleted by cleanUp
                 new Page("baa"),
                 new Page("bab"),
                 new Page("bba"),
                 new Page("ccc"),
-                new Page("ccd"),
-                new Page("cdc"),
-                new Page("cce"),
-                new Page("dcc"),
-                new Page("dcd"),
-                new Page("ddc"),
-                new Page("eee"),
-                new Page("eef"),
-                new Page("efe"),
-                new Page("eeg"),
-                new Page("fee"),
-                new Page("fef"),
-                new Page("ffe")
+                new Page("ccd"),    // not used
+                new Page("cdc"),    // not used
+                new Page("cce"),    // not used
+                new Page("dcc"),    // will be deleted by cleanUp
+                new Page("dcd"),    // will be deleted by cleanUp
+                new Page("ddc"),    // not used
+                new Page("eee"),    // will be deleted by cleanUp
+                new Page("eef"),    // will be deleted by cleanUp
+                new Page("efe"),    // not used
+                new Page("eeg"),    // not used
+                new Page("fee"),    // will be deleted by cleanUp
+                new Page("fef"),    // will be deleted by cleanUp
+                new Page("ffe")     // not used
         );
         List<IndexItem> indexItems = Arrays.asList(
                 new IndexItem("a_a", pages.get(0)),
                 new IndexItem("b_a", pages.get(6)),
-                new IndexItem("c_c", pages.get(7)),
-                new IndexItem("d_c", pages.get(11)),
-                new IndexItem("e_e", pages.get(14)),
-                new IndexItem("f_e", pages.get(18))
+                new IndexItem("c_c", pages.get(7)),     // will be deleted by manually
+                new IndexItem("d_c", pages.get(11)),    // will be deleted by manually
+                new IndexItem("e_e", pages.get(14)),    // will be deleted by cleanUp
+                new IndexItem("f_e", pages.get(18))     // will be deleted by cleanUp
         );
         List<Chapter> chapters = Arrays.asList(
                 new Chapter("aa", Arrays.asList(pages.get(0), pages.get(1), pages.get(3))),
                 new Chapter("ba", Arrays.asList(pages.get(4), pages.get(5))),
                 new Chapter("cc", Arrays.asList(pages.get(7))),
-                new Chapter("dc", Arrays.asList(pages.get(11), pages.get(12))),
-                new Chapter("ee", Arrays.asList(pages.get(14), pages.get(15))),
-                new Chapter("fe", Arrays.asList(pages.get(18), pages.get(19)))
+                new Chapter("dc", Arrays.asList(pages.get(11), pages.get(12))), // will be deleted by manually
+                new Chapter("ee", Arrays.asList(pages.get(14), pages.get(15))), // will be deleted by cleanUp
+                new Chapter("fe", Arrays.asList(pages.get(18), pages.get(19)))  // will be deleted by cleanUp
         );
         List<Book> books = Arrays.asList(
                 new Book(1, "AB", Arrays.asList(chapters.get(0), chapters.get(1)), Arrays.asList(indexItems.get(0), indexItems.get(1))),
                 new Book(2, "DC", Arrays.asList(chapters.get(2), chapters.get(3)), Arrays.asList(indexItems.get(2), indexItems.get(3))),
-                new Book(3, "FE", Arrays.asList(chapters.get(4), chapters.get(5)), Arrays.asList(indexItems.get(4), indexItems.get(5)))
+                new Book(3, "FE", Arrays.asList(chapters.get(4), chapters.get(5)), Arrays.asList(indexItems.get(4), indexItems.get(5))) // will be deleted by manually
         );
 
         mRealm.beginTransaction();
