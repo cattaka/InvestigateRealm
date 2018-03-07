@@ -14,23 +14,26 @@ import net.cattaka.android.investigaterealm.model.Chapter;
 import net.cattaka.android.investigaterealm.model.IndexItem;
 import net.cattaka.android.investigaterealm.model.Page;
 
-import java.lang.reflect.Method;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import io.realm.MyDefaultRealmModuleMediator;
 import io.realm.Realm;
 import io.realm.RealmConfiguration;
+import io.realm.RealmFieldType;
 import io.realm.RealmList;
 import io.realm.RealmModel;
 import io.realm.RealmObjectSchema;
 import io.realm.RealmResults;
 import io.realm.RealmSchema;
+import io.realm.internal.ColumnInfo;
+import io.realm.internal.OsSchemaInfo;
 
 public class MainActivity extends AppCompatActivity {
     public static final RealmConfiguration REALM_CONFIGURATION = new RealmConfiguration.Builder()
@@ -82,20 +85,43 @@ public class MainActivity extends AppCompatActivity {
         super.onStart();
         Collection<ModelDef> modelDefs = obtainModelDefs(mRealm);
         Log.d("test", modelDefs.toString());
-    }
 
-    public static void findUnusedObjects(@NonNull Realm realm, @NonNull ModelDef md) {
-        RealmResults results = realm.where(md.clazz).findAll();
-        for (ModelDef parent : md.revObjectFields) {
+        for (ModelDef md : modelDefs) {
+            List<? extends RealmModel> unusedObjects = findUnusedObjects(mRealm, md);
+            Log.d("test", md.toString() + unusedObjects);
         }
     }
 
+    public static List<? extends RealmModel> findUnusedObjects(@NonNull Realm realm, @NonNull ModelDef md) {
+        List<? extends RealmModel> results = new ArrayList<>(realm.where(md.clazz).findAll());
+        for (ColumnDef revColumnDef : md.revObjectFields) {
+            RealmResults<? extends RealmModel> parents = realm.where(revColumnDef.modelDef.clazz).findAll();
+            for (RealmModel parent : parents) {
+                RealmModel child = MyDefaultRealmModuleMediator.getColumnObject(parent, revColumnDef.columnDetails.columnIndex, md.clazz, false, Collections.<String>emptyList());
+                if (child != null) {
+                    results.remove(child);
+                }
+            }
+        }
+        for (ColumnDef revColumnDef : md.revListFields) {
+            RealmResults<? extends RealmModel> parents = realm.where(revColumnDef.modelDef.clazz).findAll();
+            for (RealmModel parent : parents) {
+                RealmList<? extends RealmModel> children = MyDefaultRealmModuleMediator.getObjects(parent, revColumnDef.columnDetails.columnIndex, md.clazz);
+                if (children != null) {
+                    results.removeAll(children);
+                }
+            }
+        }
+        return results;
+    }
+
     public static Collection<ModelDef> obtainModelDefs(@NonNull Realm realm) {
+        MyDefaultRealmModuleMediator mediator = new MyDefaultRealmModuleMediator();
         Map<String, ModelDef> name2ModelDef = new HashMap<>();
-        {
+        OsSchemaInfo schemaInfo = realm.sharedRealm.getSchemaInfo();
+        {   // List up RealmModel classes
             Map<String, Class<? extends RealmModel>> name2Class = new HashMap<>();
             {
-                MyDefaultRealmModuleMediator mediator = new MyDefaultRealmModuleMediator();
                 for (Class<? extends RealmModel> clazz : mediator.getModelClasses()) {
                     name2Class.put(clazz.getSimpleName(), clazz);
                 }
@@ -110,57 +136,60 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         }
-        for (ModelDef modelDef : name2ModelDef.values()) {
-            Set<String> fieldNames = modelDef.objectSchema.getFieldNames();
-            for (Method method : modelDef.clazz.getMethods()) {
-                if (method.getParameterTypes().length > 0
-                        || !method.getName().startsWith("get")
-                        || method.getName().length() < 4) {
-                    continue;
-                }
-                String name = method.getName().substring(3);
-                name = Character.toLowerCase(name.charAt(0)) + name.substring(1);
-                if (!fieldNames.contains(name)) {
-                    continue;
-                }
-
-                if (RealmList.class.isAssignableFrom(method.getReturnType())) {
-                    if (method.getGenericReturnType() instanceof ParameterizedType) {
-                        ParameterizedType returnType = (ParameterizedType) method.getGenericReturnType();
-                        Type[] args = returnType.getActualTypeArguments();
-                        Class argType = (args.length == 1 && args[0] instanceof Class) ? (Class) args[0] : null;
-                        ModelDef md = (argType != null) ? name2ModelDef.get(argType.getSimpleName()) : null;
-                        if (md != null) {
-                            modelDef.listFields.put(name, md);
-                        }
-                    }
-                }
-                if (RealmModel.class.isAssignableFrom(method.getReturnType())) {
-                    ModelDef md = name2ModelDef.get(method.getReturnType().getSimpleName());
+        {   // Find forward relations
+            for (ModelDef modelDef : name2ModelDef.values()) {
+                ColumnInfo columnInfo = mediator.createColumnInfo(modelDef.clazz, schemaInfo);
+                for (Map.Entry<String, ColumnInfo.ColumnDetails> entry : columnInfo.getIndicesMap().entrySet()) {
+                    ColumnInfo.ColumnDetails columnDetails = entry.getValue();
+                    ModelDef md = name2ModelDef.get(columnDetails.linkedClassName);
                     if (md != null) {
-                        modelDef.objectFields.put(name, md);
+                        if (columnDetails.columnType == RealmFieldType.OBJECT) {
+                            modelDef.objectFields.put(entry.getKey(), new ColumnDef(columnDetails, md));
+                        } else if (columnDetails.columnType == RealmFieldType.LIST) {
+                            modelDef.listFields.put(entry.getKey(), new ColumnDef(columnDetails, md));
+                        }
                     }
                 }
             }
         }
-        for (ModelDef modelDef : name2ModelDef.values()) {
-            for (ModelDef child : modelDef.objectFields.values()) {
-                child.revObjectFields.add(modelDef);
-            }
-            for (ModelDef child : modelDef.listFields.values()) {
-                child.revListFields.add(modelDef);
+        {   // Find backward relations
+            for (ModelDef modelDef : name2ModelDef.values()) {
+                for (ColumnDef child : modelDef.objectFields.values()) {
+                    child.modelDef.revObjectFields.add(new ColumnDef(child.columnDetails, modelDef));
+                }
+                for (ColumnDef child : modelDef.listFields.values()) {
+                    child.modelDef.revListFields.add(new ColumnDef(child.columnDetails, modelDef));
+                }
             }
         }
         return name2ModelDef.values();
     }
 
+    public static class ColumnDef {
+        ColumnInfo.ColumnDetails columnDetails;
+        ModelDef modelDef;
+
+        public ColumnDef(@NonNull ColumnInfo.ColumnDetails columnDetails, @NonNull ModelDef modelDef) {
+            this.columnDetails = columnDetails;
+            this.modelDef = modelDef;
+        }
+
+        @Override
+        public String toString() {
+            return "ColumnDef{" +
+                    "columnDetails=" + columnDetails +
+                    ", modelDef=" + modelDef +
+                    '}';
+        }
+    }
+
     public static class ModelDef {
         RealmObjectSchema objectSchema;
         Class<? extends RealmModel> clazz;
-        Map<String, ModelDef> objectFields;
-        Map<String, ModelDef> listFields;
-        Set<ModelDef> revObjectFields;
-        Set<ModelDef> revListFields;
+        Map<String, ColumnDef> objectFields;
+        Map<String, ColumnDef> listFields;
+        Set<ColumnDef> revObjectFields;
+        Set<ColumnDef> revListFields;
 
         public ModelDef(@NonNull RealmObjectSchema objectSchema, @NonNull Class<? extends RealmModel> clazz) {
             this.objectSchema = objectSchema;
@@ -184,6 +213,17 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public int hashCode() {
             return clazz.hashCode();
+        }
+
+        @Override
+        public String toString() {
+            return "ModelDef{" +
+                    "clazz=" + clazz.getSimpleName() +
+                    ", objectFields=" + objectFields +
+                    ", listFields=" + listFields +
+//                    ", revObjectFields=" + revObjectFields +
+//                    ", revListFields=" + revListFields +
+                    '}';
         }
     }
 }
