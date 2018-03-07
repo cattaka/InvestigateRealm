@@ -92,7 +92,7 @@ public class RealmInspectorTest {
         mRealm.commitTransaction();
 
         {   // Nothing are deleted
-            Map<Class<? extends RealmModel>, Integer> results = RealmInspector.cleanUp(mRealm);
+            Map<Class<? extends RealmModel>, Integer> results = RealmInspector.cleanUp(mRealm, false);
             for (Map.Entry<Class<? extends RealmModel>, Integer> entry : results.entrySet()) {
                 assertThat("No " + entry.getKey().getSimpleName() + "should be deleted", entry.getValue(), is(0));
             }
@@ -110,7 +110,7 @@ public class RealmInspectorTest {
         }
 
         // Execute cleanUp
-        Map<Class<? extends RealmModel>, Integer> results = RealmInspector.cleanUp(mRealm);
+        Map<Class<? extends RealmModel>, Integer> results = RealmInspector.cleanUp(mRealm, false);
 
         {   // Check existence of objects
             // Book

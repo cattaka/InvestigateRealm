@@ -22,19 +22,23 @@ import io.realm.internal.RealmInternalInspector;
  */
 
 public class RealmInspector {
-    public static Map<Class<? extends RealmModel>, Integer> cleanUp(@NonNull Realm realm) {
+    public static Map<Class<? extends RealmModel>, Integer> cleanUp(@NonNull Realm realm, boolean dryRun) {
         Map<Class<? extends RealmModel>, Integer> deletedCounts = new HashMap<>();
         List<ModelDef> modelDefs = sortByDependencies(obtainModelDefs(realm));
+        realm.beginTransaction();
         for (ModelDef md : modelDefs) {
             if (md.objectSchema.hasPrimaryKey()) {
                 continue;   // Only delete no primary key models
             }
             List<? extends RealmModel> unusedObjects = findUnusedObjects(realm, md);
             deletedCounts.put(md.clazz, unusedObjects.size());
-            realm.beginTransaction();
             for (RealmModel unusedObject : unusedObjects) {
                 RealmObject.deleteFromRealm(unusedObject);
             }
+        }
+        if (dryRun) {
+            realm.cancelTransaction();
+        } else {
             realm.commitTransaction();
         }
         return deletedCounts;
