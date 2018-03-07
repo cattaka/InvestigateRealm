@@ -30,7 +30,7 @@ public class RealmInspector {
             if (md.objectSchema.hasPrimaryKey()) {
                 continue;   // Only delete no primary key models
             }
-            List<? extends RealmModel> unusedObjects = findUnusedObjects(realm, md);
+            Collection<? extends RealmModel> unusedObjects = findUnusedObjects(realm, md);
             deletedCounts.put(md.clazz, unusedObjects.size());
             for (RealmModel unusedObject : unusedObjects) {
                 RealmObject.deleteFromRealm(unusedObject);
@@ -75,8 +75,8 @@ public class RealmInspector {
         }
     }
 
-    public static List<? extends RealmModel> findUnusedObjects(@NonNull Realm realm, @NonNull ModelDef md) {
-        List<? extends RealmModel> results = new ArrayList<>(realm.where(md.clazz).findAll());
+    public static Collection<? extends RealmModel> findUnusedObjects(@NonNull Realm realm, @NonNull ModelDef md) {
+        Set<? extends RealmModel> results = new HashSet<>(realm.where(md.clazz).findAll());
         for (ColumnDef revColumnDef : md.revObjectFields) {
             RealmResults<? extends RealmModel> parents = realm.where(revColumnDef.modelDef.clazz).findAll();
             for (RealmModel parent : parents) {

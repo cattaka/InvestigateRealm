@@ -14,7 +14,6 @@ import net.cattaka.android.investigaterealm.model.IndexItem;
 import net.cattaka.android.investigaterealm.model.Page;
 
 import java.util.Collection;
-import java.util.List;
 
 import io.realm.Realm;
 import io.realm.RealmConfiguration;
@@ -74,7 +73,7 @@ public class MainActivity extends AppCompatActivity {
         Log.d("test", modelDefs.toString());
 
         for (RealmInspector.ModelDef md : modelDefs) {
-            List<? extends RealmModel> unusedObjects = RealmInspector.findUnusedObjects(mRealm, md);
+            Collection<? extends RealmModel> unusedObjects = RealmInspector.findUnusedObjects(mRealm, md);
             Log.d("test", md.toString() + unusedObjects);
         }
     }
