@@ -1,4 +1,4 @@
-package net.cattaka.android.investigaterealm.model;
+package net.cattaka.android.realm_cascade_delete_example.model;
 
 import io.realm.RealmObject;
 

@@ -1,4 +1,4 @@
-package net.cattaka.android.investigaterealm;
+package net.cattaka.android.realm_cascade_delete_example;
 
 import android.databinding.DataBindingUtil;
 import android.os.Bundle;
@@ -7,11 +7,11 @@ import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 
-import net.cattaka.android.investigaterealm.databinding.ActivityMainBinding;
-import net.cattaka.android.investigaterealm.model.Book;
-import net.cattaka.android.investigaterealm.model.Chapter;
-import net.cattaka.android.investigaterealm.model.IndexItem;
-import net.cattaka.android.investigaterealm.model.Page;
+import net.cattaka.android.realm_cascade_delete_example.databinding.ActivityMainBinding;
+import net.cattaka.android.realm_cascade_delete_example.model.Book;
+import net.cattaka.android.realm_cascade_delete_example.model.Chapter;
+import net.cattaka.android.realm_cascade_delete_example.model.IndexItem;
+import net.cattaka.android.realm_cascade_delete_example.model.Page;
 
 import java.util.Collection;
 

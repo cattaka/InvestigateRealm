@@ -4,7 +4,7 @@ apply plugin: 'realm-android'
 android {
     compileSdkVersion 26
     defaultConfig {
-        applicationId "net.cattaka.android.investigaterealm"
+        applicationId "net.cattaka.android.realm_cascade_delete_example"
         minSdkVersion 17
         targetSdkVersion 26
         versionCode 1

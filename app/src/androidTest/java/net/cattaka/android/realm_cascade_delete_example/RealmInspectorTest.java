@@ -1,9 +1,9 @@
-package net.cattaka.android.investigaterealm;
+package net.cattaka.android.realm_cascade_delete_example;
 
-import net.cattaka.android.investigaterealm.model.Book;
-import net.cattaka.android.investigaterealm.model.Chapter;
-import net.cattaka.android.investigaterealm.model.IndexItem;
-import net.cattaka.android.investigaterealm.model.Page;
+import net.cattaka.android.realm_cascade_delete_example.model.Book;
+import net.cattaka.android.realm_cascade_delete_example.model.Chapter;
+import net.cattaka.android.realm_cascade_delete_example.model.IndexItem;
+import net.cattaka.android.realm_cascade_delete_example.model.Page;
 
 import org.junit.Before;
 import org.junit.Test;

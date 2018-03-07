@@ -5,7 +5,7 @@
 
         <variable
             name="activity"
-            type="net.cattaka.android.investigaterealm.MainActivity" />
+            type="net.cattaka.android.realm_cascade_delete_example.MainActivity" />
     </data>
 
     <android.support.constraint.ConstraintLayout
@@ -13,7 +13,7 @@
         xmlns:tools="http://schemas.android.com/tools"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        tools:context="net.cattaka.android.investigaterealm.MainActivity">
+        tools:context="net.cattaka.android.realm_cascade_delete_example.MainActivity">
 
         <Button
             android:layout_width="wrap_content"

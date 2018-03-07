@@ -1,4 +1,4 @@
-package net.cattaka.android.investigaterealm;
+package net.cattaka.android.realm_cascade_delete_example;
 
 /**
  * Created by cattaka on 18/02/16.
