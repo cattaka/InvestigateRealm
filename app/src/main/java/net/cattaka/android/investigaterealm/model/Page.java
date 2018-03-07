@@ -9,6 +9,13 @@ import io.realm.RealmObject;
 public class Page extends RealmObject {
     private String text;
 
+    public Page() {
+    }
+
+    public Page(String text) {
+        this.text = text;
+    }
+
     public String getText() {
         return text;
     }

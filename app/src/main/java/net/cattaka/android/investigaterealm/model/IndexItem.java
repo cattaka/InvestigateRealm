@@ -10,6 +10,14 @@ public class IndexItem extends RealmObject {
     private String name;
     private Page page;
 
+    public IndexItem() {
+    }
+
+    public IndexItem(String name, Page page) {
+        this.name = name;
+        this.page = page;
+    }
+
     public String getName() {
         return name;
     }
