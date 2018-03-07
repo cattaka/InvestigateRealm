@@ -53,19 +53,25 @@ public class RealmInspector {
         }
         List<ModelDef> results = new ArrayList<>();
         for (ModelDef md : modelDefs) {
-            dumpToList(results, md);
+            dumpToList(results, null, md);
         }
         return results;
     }
 
-    private static void dumpToList(@NonNull List<ModelDef> dest, ModelDef md) {
+    private static void dumpToList(@NonNull List<ModelDef> dest, @Nullable Set<ModelDef> visiteds, ModelDef md) {
+        if (visiteds == null) {
+            visiteds = new HashSet<>();
+        }
         dest.remove(md);
         dest.add(md);
-        for (ColumnDef child : md.objectFields.values()) {
-            dumpToList(dest, child.modelDef);
-        }
-        for (ColumnDef child : md.listFields.values()) {
-            dumpToList(dest, child.modelDef);
+        if (!visiteds.contains(md)) {
+            visiteds.add(md);
+            for (ColumnDef child : md.objectFields.values()) {
+                dumpToList(dest, visiteds, child.modelDef);
+            }
+            for (ColumnDef child : md.listFields.values()) {
+                dumpToList(dest, visiteds, child.modelDef);
+            }
         }
     }
 
