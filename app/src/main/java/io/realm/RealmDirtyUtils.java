@@ -8,6 +8,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -20,13 +21,120 @@ import io.realm.internal.RealmInternalInspector;
 /**
  * Created by cattaka on 18/03/07.
  */
+public class RealmDirtyUtils {
+    RealmConfiguration mConfiguration;
+    List<ModelDef> mModelDefs;
+    Map<Class<? extends RealmModel>, ModelDef> mClass2ModelDefs;
 
-public class RealmInspector {
-    public static Map<Class<? extends RealmModel>, Integer> cleanUp(@NonNull Realm realm, boolean dryRun) {
+    public RealmDirtyUtils(RealmConfiguration configuration) {
+        mConfiguration = configuration;
+        Realm realm = Realm.getInstance(mConfiguration);
+        mModelDefs = Collections.synchronizedList(sortByDependencies(obtainModelDefs(realm)));
+
+        mClass2ModelDefs = new HashMap<>();
+        for (ModelDef md : mModelDefs) {
+            mClass2ModelDefs.put(md.clazz, md);
+        }
+    }
+
+    /**
+     * NOTE: This can not handle circular reference correctly
+     */
+    public void deleteFromRealmAndCleanUp(@NonNull RealmModel object) {
+        Realm realm = Realm.getInstance(mConfiguration);
+        List<RealmModel> descendants = new ArrayList<>();
+        Set<RealmModel> visiteds = new HashSet<>();
+
+        findDescendantsOrdered(descendants, visiteds, object);
+
+        descendants.remove(object);
+        RealmObject.deleteFromRealm(object);
+
+        removeStillUsed:
+        for (Iterator<RealmModel> itr = descendants.iterator(); itr.hasNext(); ) {
+            RealmModel t = itr.next();
+            ModelDef md = findModelDefByClass(t.getClass());
+            if (md == null) {
+                continue;  // Impossible
+            }
+            for (ColumnDef revColumnDef : md.revObjectFields) {
+                RealmResults<? extends RealmModel> parents = realm.where(revColumnDef.modelDef.clazz).findAll();
+                for (RealmModel parent : parents) {
+                    if (!descendants.contains(parent)) {
+                        RealmModel child = getColumnObject(parent, revColumnDef.columnDetails.columnIndex, md.clazz, false, Collections.<String>emptyList());
+                        if (child != null && child.equals(t)) {
+                            itr.remove();
+                            continue removeStillUsed;   // t is still used.
+                        }
+                    }
+                }
+            }
+            for (ColumnDef revColumnDef : md.revListFields) {
+                RealmResults<? extends RealmModel> parents = realm.where(revColumnDef.modelDef.clazz).findAll();
+                for (RealmModel parent : parents) {
+                    if (!descendants.contains(parent)) {
+                        RealmList<? extends RealmModel> children = getColumnObjects(parent, revColumnDef.columnDetails.columnIndex, md.clazz);
+                        if (children != null && children.contains(t)) {
+                            itr.remove();
+                            continue removeStillUsed;   // t is still used.
+                        }
+                    }
+                }
+            }
+        }
+        for (RealmModel t : descendants) {
+            RealmObject.deleteFromRealm(t);
+        }
+    }
+
+    /**
+     * NOTE: This can not handle circular reference correctly
+     */
+    private void findDescendantsOrdered(@NonNull List<RealmModel> dest, @NonNull Set<RealmModel> visiteds, @NonNull RealmModel object) {
+        ModelDef modelDef = findModelDefByClass(object.getClass());
+        if (modelDef != null) {
+            if (!modelDef.objectSchema.hasPrimaryKey()) {
+                dest.remove(object);
+                dest.add(object);
+            }
+            if (visiteds.contains(object)) {
+                return;
+            }
+            visiteds.add(object);
+            for (ColumnDef cd : modelDef.objectFields.values()) {
+                RealmModel child = getColumnObject(object, cd.columnDetails.columnIndex, cd.modelDef.clazz, false, Collections.<String>emptyList());
+                if (child != null) {
+                    findDescendantsOrdered(dest, visiteds, child);
+                }
+            }
+            for (ColumnDef cd : modelDef.listFields.values()) {
+                List<? extends RealmModel> children = getColumnObjects(object, cd.columnDetails.columnIndex, cd.modelDef.clazz);
+                if (children != null) {
+                    for (RealmModel child : children) {
+                        findDescendantsOrdered(dest, visiteds, child);
+                    }
+                }
+            }
+        }
+    }
+
+    @Nullable
+    private ModelDef findModelDefByClass(@NonNull Class<?> clazz) {
+        Class<?> c = clazz;
+        while (c != null) {
+            ModelDef md = mClass2ModelDefs.get(c);
+            if (md != null) {
+                return md;
+            }
+            c = c.getSuperclass();
+        }
+        return null;
+    }
+
+    public Map<Class<? extends RealmModel>, Integer> cleanUp(@NonNull Realm realm, boolean dryRun) {
         Map<Class<? extends RealmModel>, Integer> deletedCounts = new HashMap<>();
-        List<ModelDef> modelDefs = sortByDependencies(obtainModelDefs(realm));
         realm.beginTransaction();
-        for (ModelDef md : modelDefs) {
+        for (ModelDef md : mModelDefs) {
             if (md.objectSchema.hasPrimaryKey()) {
                 continue;   // Only delete no primary key models
             }
@@ -44,7 +152,8 @@ public class RealmInspector {
         return deletedCounts;
     }
 
-    public static List<ModelDef> sortByDependencies(@NonNull Collection<ModelDef> modelDefs) {
+    private static List<ModelDef> sortByDependencies(@NonNull Collection<ModelDef> modelDefs) {
+        // NOTO: This do not ensure circular reference
         List<ModelDef> roots = new ArrayList<>();
         for (ModelDef md : modelDefs) {
             if (md.revObjectFields.isEmpty() && md.revListFields.isEmpty()) {
@@ -75,7 +184,7 @@ public class RealmInspector {
         }
     }
 
-    public static Collection<? extends RealmModel> findUnusedObjects(@NonNull Realm realm, @NonNull ModelDef md) {
+    private static Collection<? extends RealmModel> findUnusedObjects(@NonNull Realm realm, @NonNull ModelDef md) {
         Set<? extends RealmModel> results = new HashSet<>(realm.where(md.clazz).findAll());
         for (ColumnDef revColumnDef : md.revObjectFields) {
             RealmResults<? extends RealmModel> parents = realm.where(revColumnDef.modelDef.clazz).findAll();
@@ -89,7 +198,7 @@ public class RealmInspector {
         for (ColumnDef revColumnDef : md.revListFields) {
             RealmResults<? extends RealmModel> parents = realm.where(revColumnDef.modelDef.clazz).findAll();
             for (RealmModel parent : parents) {
-                RealmList<? extends RealmModel> children = getObjects(parent, revColumnDef.columnDetails.columnIndex, md.clazz);
+                RealmList<? extends RealmModel> children = getColumnObjects(parent, revColumnDef.columnDetails.columnIndex, md.clazz);
                 if (children != null) {
                     results.removeAll(children);
                 }
@@ -98,7 +207,7 @@ public class RealmInspector {
         return results;
     }
 
-    public static Collection<ModelDef> obtainModelDefs(@NonNull Realm realm) {
+    private static Collection<ModelDef> obtainModelDefs(@NonNull Realm realm) {
         DefaultRealmModuleMediator mediator = new DefaultRealmModuleMediator();
         Map<String, ModelDef> name2ModelDef = new HashMap<>();
         OsSchemaInfo schemaInfo = realm.sharedRealm.getSchemaInfo();
@@ -148,12 +257,12 @@ public class RealmInspector {
         return name2ModelDef.values();
     }
 
-    public static <E extends RealmModel> E getFromBaseRealm(@NonNull ProxyState proxyState, Class<E> clazz, long rowIndex, boolean acceptDefaultValue, List<String> excludeFields) {
+    private static <E extends RealmModel> E getFromBaseRealm(@NonNull ProxyState proxyState, Class<E> clazz, long rowIndex, boolean acceptDefaultValue, List<String> excludeFields) {
         return proxyState.getRealm$realm().get(clazz, rowIndex, acceptDefaultValue, excludeFields);
     }
 
     @Nullable
-    public static <E extends RealmModel> E getColumnObject(@NonNull RealmModel parent, long columnIndex, Class<E> clazz, boolean acceptDefaultValue, List<String> excludeFields) {
+    private static <E extends RealmModel> E getColumnObject(@NonNull RealmModel parent, long columnIndex, Class<E> clazz, boolean acceptDefaultValue, List<String> excludeFields) {
         ProxyState proxyState = RealmInternalInspector.pullProxyState(parent);
         if (proxyState == null || proxyState.getRow$realm().isNullLink(columnIndex)) {
             return null;
@@ -162,7 +271,7 @@ public class RealmInspector {
     }
 
     @Nullable
-    public static <E extends RealmModel> RealmList<E> getObjects(@NonNull RealmModel parent, long columnIndex, Class<E> clazz) {
+    private static <E extends RealmModel> RealmList<E> getColumnObjects(@NonNull RealmModel parent, long columnIndex, Class<E> clazz) {
         ProxyState proxyState = RealmInternalInspector.pullProxyState(parent);
         if (proxyState == null) {
             return null;
@@ -171,7 +280,7 @@ public class RealmInspector {
         return new RealmList<>(clazz, osList, proxyState.getRealm$realm());
     }
 
-    public static class ColumnDef {
+    static class ColumnDef {
         ColumnInfo.ColumnDetails columnDetails;
         ModelDef modelDef;
 
@@ -189,7 +298,7 @@ public class RealmInspector {
         }
     }
 
-    public static class ModelDef {
+    static class ModelDef {
         RealmObjectSchema objectSchema;
         Class<? extends RealmModel> clazz;
         Map<String, ColumnDef> objectFields;

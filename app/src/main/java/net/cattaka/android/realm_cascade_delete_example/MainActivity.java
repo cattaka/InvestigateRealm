@@ -4,7 +4,6 @@ import android.databinding.DataBindingUtil;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.support.v7.app.AppCompatActivity;
-import android.util.Log;
 import android.view.View;
 
 import net.cattaka.android.realm_cascade_delete_example.databinding.ActivityMainBinding;
@@ -13,13 +12,9 @@ import net.cattaka.android.realm_cascade_delete_example.model.Chapter;
 import net.cattaka.android.realm_cascade_delete_example.model.IndexItem;
 import net.cattaka.android.realm_cascade_delete_example.model.Page;
 
-import java.util.Collection;
-
 import io.realm.Realm;
 import io.realm.RealmConfiguration;
-import io.realm.RealmInspector;
 import io.realm.RealmList;
-import io.realm.RealmModel;
 
 public class MainActivity extends AppCompatActivity {
     public static final RealmConfiguration REALM_CONFIGURATION = new RealmConfiguration.Builder()
@@ -69,14 +64,5 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
-        Collection<RealmInspector.ModelDef> modelDefs = RealmInspector.obtainModelDefs(mRealm);
-        Log.d("test", modelDefs.toString());
-
-        for (RealmInspector.ModelDef md : modelDefs) {
-            Collection<? extends RealmModel> unusedObjects = RealmInspector.findUnusedObjects(mRealm, md);
-            Log.d("test", md.toString() + unusedObjects);
-        }
     }
-
-
 }
